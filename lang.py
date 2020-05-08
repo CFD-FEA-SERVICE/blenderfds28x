@@ -558,7 +558,7 @@ class SP_HEAD_TITLE(BFParamFYI):
 @subscribe
 class SN_HEAD(BFNamelistSc):
     """!
-    Blender representation of the HEAD namelist group, the case header.
+    Blender representation of the HEAD namelist.
     """
 
     label = "HEAD"
@@ -573,7 +573,7 @@ class SN_HEAD(BFNamelistSc):
 @subscribe
 class SN_TAIL(BFNamelistSc):
     """!
-    Blender representation of the TAIL namelist group, the case closing.
+    Blender representation of the TAIL namelist.
     For importing only.
     """
 
@@ -585,7 +585,7 @@ class SN_TAIL(BFNamelistSc):
     def to_fds_namelist(self, context):
         pass
 
-    def from_fds(self, context, fds_params):
+    def from_fds(self, context, fds_namelist):
         pass
 
 
@@ -605,7 +605,7 @@ class SP_TIME_setup_only(BFParam):
     bpy_prop = BoolProperty
     bpy_default = False
 
-    def to_fds_param(self, context):  # FIXME move to T_END
+    def to_fds_param(self, context):
         if self.element.bf_time_setup_only:
             return FDSParam(
                 fds_label="T_END",
@@ -658,7 +658,7 @@ class SP_TIME_T_END(BFParam):
 @subscribe
 class SP_TIME_other(BFParamOther):
     """!
-    TODO
+    Blender representation of other parameters for the TIME namelist.
     """
 
     bpy_type = Scene
@@ -670,7 +670,7 @@ class SP_TIME_other(BFParamOther):
 @subscribe
 class SN_TIME(BFNamelistSc):
     """!
-    Blender representation of the TIME namelist group, the simulation time settings.
+    Blender representation of the TIME namelist.
     """
 
     label = "TIME"
@@ -728,7 +728,7 @@ class SP_MISC_THICKEN_OBSTRUCTIONS(BFParam):
 @subscribe
 class SP_MISC_other(BFParamOther):
     """!
-    TODO
+    Blender representation of other parameters for the MISC namelist.
     """
 
     bpy_type = Scene
@@ -740,7 +740,7 @@ class SP_MISC_other(BFParamOther):
 @subscribe
 class SN_MISC(BFNamelistSc):
     """!
-    Blender representation of the MISC namelist group, the miscellaneous parameters.
+    Blender representation of the MISC namelist.
     """
 
     label = "MISC"
@@ -787,7 +787,6 @@ class SP_REAC_FYI(BFParamFYI):
 class SP_REAC_FUEL(BFParamStr):
     """!
     Blender representation of the FUEL string parameter, the identificator of fuel species.
-    FIXME from table
     """
 
     label = "FUEL"
@@ -892,7 +891,7 @@ class SP_REAC_RADIATIVE_FRACTION(BFParam):
 @subscribe
 class SP_REAC_other(BFParamOther):
     """!
-    TODO
+    Blender representation of other parameters for the REAC namelist.
     """
 
     bpy_type = Scene
@@ -904,7 +903,7 @@ class SP_REAC_other(BFParamOther):
 @subscribe
 class SN_REAC(BFNamelistSc):
     """!
-    Blender representation of the REAC (reaction) namelist group.
+    Blender representation of the REAC namelist.
     """
 
     label = "REAC"
@@ -1022,7 +1021,7 @@ class SP_RADI_RADIATION_ITERATIONS(BFParam):
 @subscribe
 class SP_RADI_other(BFParamOther):
     """!
-    TODO
+    Blender representation of other parameters for the RADI namelist.
     """
 
     bpy_type = Scene
@@ -1034,7 +1033,7 @@ class SP_RADI_other(BFParamOther):
 @subscribe
 class SN_RADI(BFNamelistSc):
     """!
-    Blender representation of the RADI namelist group, the radiation parameters.
+    Blender representation of the RADI namelist.
     """
 
     label = "RADI"
@@ -1154,7 +1153,7 @@ class SP_DUMP_DT_RESTART(BFParam):
 @subscribe
 class SP_DUMP_other(BFParamOther):
     """!
-    TODO
+    Blender representation of other parameters for the DUMP namelist.
     """
 
     bpy_type = Scene
@@ -1166,7 +1165,7 @@ class SP_DUMP_other(BFParamOther):
 @subscribe
 class SN_DUMP(BFNamelistSc):
     """!
-    Blender representation of the DUMP namelist group, the output parameters.
+    Blender representation of the DUMP namelist.
     """
 
     label = "DUMP"
@@ -1180,7 +1179,7 @@ class SN_DUMP(BFNamelistSc):
         SP_DUMP_render_file,
         SP_DUMP_STATUS_FILES,
         SP_DUMP_NFRAMES,
-        # SP_DUMP_set_frequency, # FIXME not ready
+        # SP_DUMP_set_frequency, # TODO not ready
         SP_DUMP_DT_RESTART,
         SP_DUMP_other,
     )
@@ -1236,7 +1235,7 @@ class SP_CATF_files(BFParamOther):
     def from_fds(self, context, value):
         if not value:
             self.set_value(context, None)
-        elif isinstance(value, str):  # str
+        elif isinstance(value, str):
             self.set_value(context, value)
         else:  # tuple of str
             for v in value:
@@ -1246,7 +1245,7 @@ class SP_CATF_files(BFParamOther):
 @subscribe
 class SN_CATF(BFNamelistSc):
     """!
-    Blender representation of the CATF namelist group, the concatenated file paths.
+    Blender representation of the CATF namelist.
     """
 
     label = "CATF"
@@ -1281,11 +1280,11 @@ class MP_namelist_cls(BFParam):
     }
     bpy_default = "MN_SURF"
 
-    def to_fds_param(self, context):
-        # Do not export default FIXME move to exported
+    @property
+    def exported(self):
         if self.element.name in {"INERT", "HVAC", "MIRROR", "OPEN", "PERIODIC"}:
-            return
-        super().to_fds_param(context)
+            return False
+        super().exported
 
 
 @subscribe
@@ -1333,12 +1332,16 @@ class MP_RGB(BFParam):
 
     def to_fds_param(self, context):
         c = self.element.diffuse_color
-        rs = (int(c[0] * 255), int(c[1] * 255), int(c[2] * 255))
-        ts = (c[3],)
-        return (
-            FDSParam(fds_label="RGB", values=rs),
-            FDSParam(fds_label="TRANSPARENCY", values=ts, precision=2),
-        )  # many # FIXME TRANSPARENCY not always
+        p_rgb = FDSParam(
+            fds_label="RGB", values=(int(c[0] * 255), int(c[1] * 255), int(c[2] * 255)),
+        )
+        if c[3] == 1.0:  # do not send TRANSPARENCY if it is 1
+            return p_rgb
+        else:
+            p_transparency = FDSParam(
+                fds_label="TRANSPARENCY", values=(c[3],), precision=2
+            )
+            return (p_rgb, p_transparency)  # many
 
 
 @subscribe
@@ -1514,7 +1517,7 @@ class MP_BACKING(BFParam):
 @subscribe
 class MP_other(BFParamOther):
     """!
-    TODO
+    Blender representation of other parameters for all namelists of Blender Material.
     """
 
     bpy_type = Material
@@ -1526,7 +1529,7 @@ class MP_other(BFParamOther):
 @subscribe
 class MN_SURF(BFNamelistMa):
     """!
-    Blender representation of the SURF namelist group, the generic boundary condition.
+    Blender representation of the SURF namelist, the generic boundary condition.
     """
 
     label = "SURF"
@@ -1987,7 +1990,7 @@ class OP_PB(BFParamPB):
         # Prepare labels
         labels = tuple(
             f"PB{('X','Y','Z')[int(axis)]}" for axis, _ in pbs
-        )  # FIXME int to protect from float
+        )  # int to protect from float sent by cache
         # Single param
         if len(pbs) == 1:
             return FDSParam(fds_label=labels[0], values=(pbs[0][1],), precision=6)
@@ -2147,7 +2150,7 @@ class OP_SURF_ID(BFParam):
 @subscribe
 class OP_other(BFParamOther):
     """!
-    TODO
+    Blender representation of other parameters for all namelists of Blender Object.
     """
 
     bpy_type = Object
@@ -2159,7 +2162,7 @@ class OP_other(BFParamOther):
 @subscribe
 class ON_OBST(BFNamelistOb):
     """!
-    Blender representation of the OBST parameter, the obstructions.
+    Blender representation of the OBST namelist.
     """
 
     label = "OBST"
@@ -2195,7 +2198,7 @@ class OP_other_namelist(BFParam):
 @subscribe
 class ON_other(BFNamelistOb):
     """!
-    TODO
+    Blender representation of any other namelists.
     """
 
     label = "Other"
@@ -2250,7 +2253,7 @@ class OP_GEOM_check_sanity(BFParam):
 
 
 @subscribe
-class OP_GEOM_protect(BFParam):  # FIXME should not be here
+class OP_GEOM_protect(BFParam):  # TODO should not be here, in operator?
     """!
     Blender representation to protect original Object geometry while checking its sanity.
     """
@@ -2283,7 +2286,7 @@ class OP_MOVE_ID(BFParam):
     @property
     def value(self):
         if self.element.bf_move_id:
-            return f"{self.element.name}_move"  # FIXME
+            return f"{self.element.name}_move"  # TODO settle
 
 
 @subscribe
@@ -2299,7 +2302,6 @@ class OP_GEOM_READ_BINARY(BFParam):
     bpy_type = Object
     bpy_idname = "bf_geom_read_binary"
     bpy_prop = BoolProperty
-    bpy_default = True
 
     # TODO delete binary geom if ob geometry updated
 
@@ -2347,7 +2349,6 @@ class OP_GEOM(BFParam):
 class OP_GEOM_IS_TERRAIN(BFParam):
     """!
     Blender representation of the IS_TERRAIN parameter to set if it represents a terrain.
-    FIXME.
     """
 
     label = "IS_TERRAIN"
@@ -2363,7 +2364,6 @@ class OP_GEOM_IS_TERRAIN(BFParam):
 class OP_GEOM_EXTEND_TERRAIN(BFParam):
     """!
     Blender representation of the EXTEND_TERRAIN parameter to set if this terrain needs extension to fully cover the domain.
-    FIXME.
     """
 
     label = "EXTEND_TERRAIN"
@@ -2383,7 +2383,7 @@ class OP_GEOM_EXTEND_TERRAIN(BFParam):
 @subscribe
 class ON_GEOM(BFNamelistOb):
     """!
-    Blender representation of the GEOM parameter, the geometry of the obstructions.
+    Blender representation of the GEOM namelist.
     """
 
     label = "GEOM"
@@ -2437,6 +2437,34 @@ class ON_GEOM(BFNamelistOb):
             nl,
         )  # many
 
+    def from_fds(self, context, fds_namelist):
+        # Get SURF_ID, VERTS, FACES
+        p_surfids = fds_namelist.get_fds_param_by_label("SURF_ID")
+        p_verts = fds_namelist.get_fds_param_by_label("VERTS")
+        p_faces = fds_namelist.get_fds_param_by_label("FACES")
+        # If they exist, set geometry
+        if all((p_surfids, p_verts, p_faces)):
+            try:
+                geometry.from_fds.geom_to_mesh(
+                    fds_surfids=p_surfids.values,
+                    fds_verts=p_verts.values,
+                    fds_faces=p_faces.values,
+                    context=context,
+                    me=self.element.data,
+                    scale_length=context.scene.unit_settings.scale_length,
+                )
+            except Exception as err:
+                raise BFException(
+                    self, f"Error importing <{fds_namelist}> parameters, {str(err)}"
+                )
+            else:
+                # Already treated so remove them
+                fds_namelist.fds_params.remove(p_surfids)
+                fds_namelist.fds_params.remove(p_verts)
+                fds_namelist.fds_params.remove(p_faces)
+        # Import remaining params
+        super().from_fds(context, fds_namelist)
+
     def draw_operators(self, context, layout):
         ob = context.object
         col = layout.column()
@@ -2451,7 +2479,7 @@ class ON_GEOM(BFNamelistOb):
 @subscribe
 class ON_HOLE(BFNamelistOb):
     """!
-    Blender representation of the HOLE parameter, the obstruction cutout.
+    Blender representation of the HOLE namelist.
     """
 
     label = "HOLE"
@@ -2469,7 +2497,6 @@ class ON_HOLE(BFNamelistOb):
 class OP_VENT_OBST_ID(BFParam):
     """!
     Blender representation of the OBST_ID parameter to specify OBST on which projecting the condition.
-    FIXME.
     """
 
     label = "OBST_ID"
@@ -2499,7 +2526,7 @@ class OP_VENT_OBST_ID(BFParam):
 @subscribe
 class ON_VENT(BFNamelistOb):
     """!
-    Blender representation of the VENT parameter, the boundary condition patch.
+    Blender representation of the VENT namelist.
     """
 
     label = "VENT"
@@ -2609,7 +2636,7 @@ class OP_DEVC_PROP_ID(BFParamStr):
 @subscribe
 class ON_DEVC(BFNamelistOb):
     """!
-    Blender representation of the DEVC parameter, the device.
+    Blender representation of the DEVC namelist.
     """
 
     label = "DEVC"
@@ -2626,7 +2653,7 @@ class ON_DEVC(BFNamelistOb):
         OP_DEVC_PROP_ID,
         OP_XB,
         OP_XYZ,
-        OP_PB,  # FIXME used?
+        OP_PB,  # TODO used?
         OP_PBX,
         OP_PBY,
         OP_PBZ,
@@ -2672,7 +2699,7 @@ class OP_SLCF_CELL_CENTERED(BFParam):
 @subscribe
 class ON_SLCF(BFNamelistOb):
     """!
-    Blender representation of the SLCF parameter to slice file.
+    Blender representation of the SLCF namelist.
     """
 
     label = "SLCF"
@@ -2702,7 +2729,7 @@ class ON_SLCF(BFNamelistOb):
 @subscribe
 class ON_PROF(BFNamelistOb):
     """!
-    Blender representation of the PROF parameter, the wall profile output.
+    Blender representation of the PROF namelist.
     """
 
     label = "PROF"
@@ -2793,7 +2820,7 @@ class OP_MESH_MPI_PROCESS(BFParam):
 @subscribe
 class ON_MESH(BFNamelistOb):
     """!
-    Blender representation of the MESH parameter, the domain of simulation.
+    Blender representation of the MESH namelist.
     """
 
     label = "MESH"
@@ -2816,7 +2843,7 @@ class ON_MESH(BFNamelistOb):
 @subscribe
 class ON_INIT(BFNamelistOb):
     """!
-    Blender representation of the INIT parameter, the initial condition.
+    Blender representation of the INIT namelist.
     """
 
     label = "INIT"
@@ -2833,7 +2860,7 @@ class ON_INIT(BFNamelistOb):
 @subscribe
 class ON_ZONE(BFNamelistOb):
     """!
-    Blender representation of the ZONE parameter, the pressure zone.
+    Blender representation of the ZONE namelist.
     """
 
     label = "ZONE"
@@ -2850,7 +2877,7 @@ class ON_ZONE(BFNamelistOb):
 @subscribe
 class ON_HVAC(BFNamelistOb):
     """!
-    Blender representation of the HVAC parameter, the HVAC system definition.
+    Blender representation of the HVAC namelist.
     """
 
     label = "HVAC"
@@ -2927,7 +2954,7 @@ class BFObject:
         # Prevent default geometry (eg. XB=BBOX)
         self.bf_xb_export, self.bf_xyz_export, self.bf_pb_export = (False, False, False)
         # Import
-        self.bf_namelist.from_fds(context, fds_params=fds_namelist.fds_params)
+        self.bf_namelist.from_fds(context, fds_namelist=fds_namelist)
 
     def set_default_appearance(self, context):
         """!
@@ -2949,7 +2976,7 @@ class BFObject:
         # WIRE: MESH, HVAC
         # Set
         if appearance == "TEXTURED" and ma_inert:
-            # self.active_material = ma_inert  # FIXME beware it changes the material during from_fds
+            # self.active_material = ma_inert  # TODO beware it changes the material during from_fds
             self.show_wire = False
             self.display_type = "TEXTURED"
             return
@@ -3024,7 +3051,7 @@ class BFMaterial:
         # Set bf_namelist_cls
         self.bf_namelist_cls = "MN_SURF"
         # Import
-        self.bf_namelist.from_fds(context, fds_params=fds_namelist.fds_params)
+        self.bf_namelist.from_fds(context, fds_namelist=fds_namelist)
 
     def set_default_appearance(self, context):  # TODO
         """!
@@ -3110,7 +3137,7 @@ class BFScene:
                 for ma in mas:
                     lines.append(ma.to_fds(context))
             # Objects
-            lines.append(self.collection.to_fds(context))  # FIXME protect from None?
+            lines.append(self.collection.to_fds(context))
             # Tail
             if self.bf_head_export:
                 lines.append("\n&TAIL /")
@@ -3124,8 +3151,8 @@ class BFScene:
         """
         self.set_default_appearance(context)  # current scene
         fds_case_un = FDSCase()  # unmanaged namelists
-        # Import SURFs first FIXME improve, repetition!
-        # FIXME if a material is not available, throw an Exception!
+        # Import SURFs first TODO improve, repetition!
+        # TODO if a material is not available, throw an Exception!
         for fds_namelist in fds_case.fds_namelists:
             if fds_namelist.fds_label != "SURF":
                 continue
@@ -3134,7 +3161,7 @@ class BFScene:
             ma.from_fds(context, fds_namelist=fds_namelist)
             ma.use_fake_user = True  # prevent del (eg. used by PART)
             ma.set_default_appearance(context)
-        # Then the rest FIXME improve
+        # Then the rest TODO improve
         for fds_namelist in fds_case.fds_namelists:
             if fds_namelist.fds_label == "SURF":
                 continue
@@ -3160,7 +3187,7 @@ class BFScene:
                 )
                 ma.set_default_appearance(context)
             elif bf_namelist.bpy_type == Scene:  # current Scene
-                bf_namelist(self).from_fds(context, fds_params=fds_namelist.fds_params)
+                bf_namelist(self).from_fds(context, fds_namelist=fds_namelist)
         # Set imported Scene visible
         context.window.scene = self
         # Record unmanaged namelists in free text
