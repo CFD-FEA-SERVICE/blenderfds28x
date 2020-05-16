@@ -965,12 +965,19 @@ class FDSCase:
         re.VERBOSE | re.DOTALL | re.IGNORECASE | re.MULTILINE,
     )  # MULTILINE, so that ^ is the beginning of each line
 
+    _re_fyi_slash = r"(FYI[\s\t]*=[\s\t]*')([^']*)(')"
+
     def from_fds(self, f90_namelists, reset=True):
         """!
         Import from FDS formatted string of namelists, on error raise BFException.
         @param f90_namelists: FDS formatted string of namelists, eg. "&OBST ID='Test' /\n&TAIL /".
         @param reset: if True, reset self.fds_namelists to empty list before importing.
         """
+        def FYISlashReplacer(matchobj):
+            return matchobj.group(1) + matchobj.group(2).replace("/", "&#x2f;") + matchobj.group(3)
+        
+        f90_namelists = re.sub(self._re_fyi_slash, FYISlashReplacer, f90_namelists)
+
         if reset:
             self.fds_namelists = list()
         for match in re.finditer(self._scan, f90_namelists):
