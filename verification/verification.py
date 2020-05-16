@@ -66,7 +66,7 @@ def fds_run(file_fds):
     if string.decode("utf-8").find(success) > 0:
         fds_execution = True
 
-    return [fds_execution, string]
+    return [fds_execution, string.splitlines()]
 
 
 # Routine to compare two files .FDS
@@ -116,7 +116,7 @@ def compare_fds_files(filea, fileb):
         string = string + line
         fds_equals = False
 
-    return [fds_equals, string]
+    return [fds_equals, string.splitlines()]
 
 
 # Routine to execute the test of a .blend or .fds file
@@ -160,9 +160,7 @@ def do_tests(dirpath, filename):
             test["scene"] = sc.name
 
             try:
-                with tempfile.NamedTemporaryFile(
-                    suffix=".fds", delete=True
-                ) as temporaryFile:
+                with tempfile.NamedTemporaryFile(suffix=".fds", delete=True) as temporaryFile:
                     bpy.context.window.scene = sc
                     bpy.ops.export_scene.fds(filepath=temporaryFile.name)
                     compare = compare_fds_files(
@@ -235,16 +233,22 @@ def append_case(xml, csvData, results, contentName, contentType, contentInput, t
         nodeResult.appendChild(nodeText)
 
         nodeNote = xml.createElement("Note")
-        nodeText = xml.createTextNode(escape_text(test["note"]))
-        nodeNote.appendChild(nodeText)
+        for line in test["note"]:
+            nodeLine = xml.createElement("Line")
+            nodeText = xml.createTextNode(escape_text(line))
+            nodeLine.appendChild(nodeText)
+            nodeNote.appendChild(nodeLine)
 
         nodeFdsResult = xml.createElement("Result_Fds")
         nodeText = xml.createTextNode(escape_text(test["fdsResult"]))
         nodeFdsResult.appendChild(nodeText)
 
         nodeFdsNote = xml.createElement("Note_Fds")
-        nodeText = xml.createTextNode(escape_text(test["fdsNote"]))
-        nodeFdsNote.appendChild(nodeText)
+        for line in test["fdsNote"]:
+            nodeLine = xml.createElement("Line")
+            nodeText = xml.createTextNode(escape_text(line))
+            nodeLine.appendChild(nodeText)
+            nodeFdsNote.appendChild(nodeLine)
 
         nodeCase = xml.createElement("Case")
         nodeCase.appendChild(nodeName)
@@ -326,8 +330,6 @@ try:
             fdsfds = (
                 testXml.getElementsByTagName("fdsfds")[0].firstChild.nodeValue == "true"
             )
-
-            #raise Exception("ciao")
 
             # blend to fds test
             if blnfds:

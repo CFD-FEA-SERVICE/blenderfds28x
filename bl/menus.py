@@ -102,7 +102,7 @@ def menu_func_import_FDS(self, context):
     @param context: the <a href="https://docs.blender.org/api/current/bpy.context.html">blender context</a>.
     """
     self.layout.operator(
-        "import_scene.fds", text="NIST FDS (.fds) into New Scene"
+        "import_scene.fds", text="FDS (.fds) into New Scene"
     ).new_scene = True
 
 
@@ -112,7 +112,7 @@ def menu_func_import_snippet_FDS(self, context):
     @param context: the <a href="https://docs.blender.org/api/current/bpy.context.html">blender context</a>.
     """
     self.layout.operator(
-        "import_scene.fds", text="NIST FDS (.fds) into Current Scene"
+        "import_scene.fds", text="FDS (.fds) into Current Scene"
     ).new_scene = False
 
 
@@ -160,9 +160,9 @@ class ExportFDS(Operator, ExportHelper):
         except IOError:
             self.report({"ERROR"}, f"Filepath not writable:\n<{filepath}>")
             return {"CANCELLED"}
-        # except Exception as err:
-        #     self.report({"ERROR"}, f"Unexpected error:\n<{str(err)}>")
-        #     return {"CANCELLED"}  # FIXME restore
+        except Exception as err:
+            self.report({"ERROR"}, f"Unexpected error:\n<{str(err)}>")
+            return {"CANCELLED"}
         finally:
             w.cursor_modal_restore()
         if sc.bf_dump_render_file:
@@ -177,9 +177,9 @@ class ExportFDS(Operator, ExportHelper):
             except IOError:
                 self.report({"ERROR"}, f"Filepath not writable:\n<{filepath}>")
                 return {"CANCELLED"}
-            # except Exception as err:
-            #     self.report({"ERROR"}, f"Unexpected error:\n<{str(err)}>")
-            #     return {"CANCELLED"}  # FIXME restore
+            except Exception as err:
+                self.report({"ERROR"}, f"Unexpected error:\n<{str(err)}>")
+                return {"CANCELLED"}
             finally:
                 w.cursor_modal_restore()
         self.report({"INFO"}, f"FDS exporting ok")
@@ -216,7 +216,7 @@ def menu_func_export_to_fds(self, context):
     """!
     Export function for current Scene to FDS case file.
     """
-    self.layout.operator(ExportFDS.bl_idname, text="NIST FDS (.fds)")
+    self.layout.operator(ExportFDS.bl_idname, text="FDS (.fds)")
 
 
 # Register
