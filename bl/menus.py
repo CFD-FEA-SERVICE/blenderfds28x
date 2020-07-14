@@ -3,7 +3,8 @@ BlenderFDS, import/export menu panel
 """
 
 import os
-
+import tempfile
+import json
 import bpy, logging
 from bpy.types import Operator
 from bpy.props import StringProperty, BoolProperty, FloatProperty
@@ -11,6 +12,12 @@ from bpy_extras.io_utils import ImportHelper, ExportHelper
 
 from .. import utils
 from ..types import BFException, FDSCase
+
+try:
+    import requests
+except ImportError:
+    os.system("pip install requests")
+    import requests
 
 log = logging.getLogger(__name__)
 
@@ -219,6 +226,118 @@ def menu_func_export_to_fds(self, context):
     self.layout.operator(ExportFDS.bl_idname, text="FDS (.fds)")
 
 
+@subscribe
+class ExportFDSCloudHPC(Operator):
+    """!
+    Export current Scene to FDS case file.
+    """
+
+    bl_idname = "export_scene_cloudhpc.fds"
+    bl_label = "Export FDS into CloudHPC"
+    bl_description = "Export Blender Scenes into CloudHPC"
+
+    cloudKeyFilePath = "/".join((os.path.dirname(os.path.realpath(__file__)), "CloudHPCKey.txt"))
+
+    cloudHPC_key = bpy.props.StringProperty(
+        name = "CloudHPC Key",
+        description = "CloudHPC Key",
+        default = ""
+    )
+
+    cloudHPC_dirname = bpy.props.StringProperty(
+        name = "CloudHPC Directory",
+        description = "CloudHPC Directory",
+        default = "Directory"
+    )
+
+    cloudHPC_filename = bpy.props.StringProperty(
+        name = "CloudHPC Filename",
+        description = "CloudHPC Filename",
+        default = "Filename.fds"
+    )
+
+    def _getCloudKey(self):
+        try:
+            with open(self.cloudKeyFilePath, "r") as f:
+                return f.read()
+        except:
+            return ""
+
+    def invoke(self, context, event):
+        self.cloudHPC_key = self._getCloudKey()
+        return context.window_manager.invoke_props_dialog(self, width = 450)
+    
+    def draw(self, context):
+        col = self.layout.column(align = True)
+        col.prop(self, "cloudHPC_key")
+
+        col = self.layout.column(align = True)
+        col.prop(self, "cloudHPC_dirname")
+
+        col = self.layout.column(align = True)
+        col.prop(self, "cloudHPC_filename")
+
+    def execute(self, context):
+        with tempfile.NamedTemporaryFile(mode='w+', suffix='.fds', delete=True) as temp:
+            try:
+                with open(self.cloudKeyFilePath, "w") as f:
+                    f.write(self.cloudHPC_key)
+
+                temp.writelines(context.scene.to_fds(context=context, full=True))
+                temp.seek(0)
+                self._upload_fds(self.cloudHPC_key, self.cloudHPC_dirname, self.cloudHPC_filename, temp)
+                return {"FINISHED"}
+        
+            except Exception as e:
+                print(str(e))
+                return {"CANCELLED"}
+
+    def _upload_fds(self, api_key, dirname, filename, fdsFile):
+
+        url = 'https://cloud.cfdfeaservice.it/api/v1/storage/upload/url'
+
+        headers = {
+            'api-key': f'{api_key}',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        }
+
+        payload = json.dumps({
+            'data': {
+                'dirname': f'{dirname}',
+                'basename': f'{filename}',
+                'contentType': 'application/octet-stream'
+            }
+        })
+
+        response = requests.post(url, headers=headers, data=payload)
+        print(response.status_code)
+        if(response.status_code != 200):
+            raise ConnectionError(response.status_code)
+
+        #---------------
+
+        url = json.loads(response.text)['url']
+
+        data = fdsFile.read()
+
+        headers = {
+            'Content-Type': 'application/octet-stream',
+        }
+
+        response = requests.put(url, headers=headers, data=data)
+        print(response.status_code)
+        if(response.status_code != 200):
+            raise ConnectionError(response.status_code)
+
+
+def menu_func_export_to_cloudHPC(self, context):
+    """!
+    Export function for current Scene to FDS case file.
+    """
+    self.layout.operator(ExportFDSCloudHPC.bl_idname, text="FDS (.fds) into CloudHPC")
+
+
 # Register
 
 
@@ -233,6 +352,8 @@ def register():
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import_FDS)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import_snippet_FDS)
     bpy.types.TOPBAR_MT_file_export.append(menu_func_export_to_fds)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func_export_to_cloudHPC)
+
 
 
 def unregister():
@@ -246,3 +367,4 @@ def unregister():
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_FDS)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_snippet_FDS)
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export_to_fds)
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export_to_cloudHPC)
