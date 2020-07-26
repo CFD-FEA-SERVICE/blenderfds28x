@@ -6,6 +6,7 @@ import os
 import tempfile
 import json
 import bpy, logging
+import webbrowser
 from bpy.types import Operator
 from bpy.props import StringProperty, BoolProperty, FloatProperty
 from bpy_extras.io_utils import ImportHelper, ExportHelper
@@ -240,19 +241,16 @@ class ExportFDSCloudHPC(Operator):
 
     cloudHPC_key = bpy.props.StringProperty(
         name = "CloudHPC Key",
-        description = "CloudHPC Key",
         default = ""
     )
 
     cloudHPC_dirname = bpy.props.StringProperty(
         name = "CloudHPC Directory",
-        description = "CloudHPC Directory",
         default = "Directory"
     )
 
     cloudHPC_filename = bpy.props.StringProperty(
         name = "CloudHPC Filename",
-        description = "CloudHPC Filename",
         default = "Filename.fds"
     )
 
@@ -286,6 +284,7 @@ class ExportFDSCloudHPC(Operator):
                 temp.writelines(context.scene.to_fds(context=context, full=True))
                 temp.seek(0)
                 self._upload_fds(self.cloudHPC_key, self.cloudHPC_dirname, self.cloudHPC_filename, temp)
+                webbrowser.open('https://cloud.cfdfeaservice.it/', new=2)
                 return {"FINISHED"}
         
             except Exception as e:
@@ -353,7 +352,6 @@ def register():
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import_snippet_FDS)
     bpy.types.TOPBAR_MT_file_export.append(menu_func_export_to_fds)
     bpy.types.TOPBAR_MT_file_export.append(menu_func_export_to_cloudHPC)
-
 
 
 def unregister():
