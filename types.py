@@ -897,15 +897,18 @@ class FDSNamelist:
     _re_sep = r"[,\s\t]+"  # one or more separators
     _re_end = r"[,\s\t]*/"  # zero or more separators + "/"
     _re_values = (
-        r"(.+?)"  # one or more of any char, not greedy
-        + r"(?="  # end previous match when
+        r"("
+        + "'[^']+'" # any character between '
+        + "|"  # or
+        + ".+?"  # one or more of any char, not greedy
+        + "(?="  # end previous match when
         + _re_sep
         + _re_label  # either a new label
         + _re_space
         + "="  # followed by an equal sign
         + "|"  # or
         + _re_end  # the end of the namelist
-        + ")"
+        + "))"
     )
     _re_param = (
         _re_label + _re_space + "=" + _re_space + _re_values
@@ -969,19 +972,12 @@ class FDSCase:
         re.VERBOSE | re.DOTALL | re.IGNORECASE | re.MULTILINE,
     )  # MULTILINE, so that ^ is the beginning of each line
 
-    _re_fyi_slash = r"(FYI[\s\t]*=[\s\t]*')([^']*)(')"
-
     def from_fds(self, f90_namelists, reset=True):
         """!
         Import from FDS formatted string of namelists, on error raise BFException.
         @param f90_namelists: FDS formatted string of namelists, eg. "&OBST ID='Test' /\n&TAIL /".
         @param reset: if True, reset self.fds_namelists to empty list before importing.
         """
-        def FYISlashReplacer(matchobj):
-            return matchobj.group(1) + matchobj.group(2).replace("/", "&#x2f;") + matchobj.group(3)
-        
-        f90_namelists = re.sub(self._re_fyi_slash, FYISlashReplacer, f90_namelists)
-
         if reset:
             self.fds_namelists = list()
         for match in re.finditer(self._scan, f90_namelists):
