@@ -284,12 +284,13 @@ class ExportFDSCloudHPC(Operator):
                 temp.writelines(context.scene.to_fds(context=context, full=True))
                 temp.seek(0)
                 self._upload_fds(self.cloudHPC_key, self.cloudHPC_dirname, self.cloudHPC_filename, temp)
+                ShowMessageBox(message="File was uploaded succesfully", title="CFD Fea Service")
                 webbrowser.open('https://cloud.cfdfeaservice.it/', new=2)
                 return {"FINISHED"}
         
             except Exception as e:
-                print(str(e))
-                return {"CANCELLED"}
+                ShowMessageBox(message="An error occurred during the file upload", title="CFD Fea Service") 
+                return {"FINISHED"}
 
     def _upload_fds(self, api_key, dirname, filename, fdsFile):
 
@@ -335,6 +336,14 @@ def menu_func_export_to_cloudHPC(self, context):
     Export function for current Scene to FDS case file.
     """
     self.layout.operator(ExportFDSCloudHPC.bl_idname, text="FDS (.fds) into CloudHPC")
+
+
+def ShowMessageBox(message="", title="Message Box", icon='INFO'):
+
+    def draw(self, context):
+        self.layout.label(text=message)
+
+    bpy.context.window_manager.popup_menu(draw, title=title, icon=icon)
 
 
 # Register
