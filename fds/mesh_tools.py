@@ -30,6 +30,8 @@ BlenderFDS, FDS MESH tools.
 #  ·---·---·---·---·
 #  |       |       |
 
+import bpy, bmesh
+from mathutils import Matrix
 
 def _factor(n):
     """!
@@ -312,6 +314,153 @@ def split_mesh(axis, ijk, xbs):  # TODO clean, complete, and wire
 
     return aijk, axbs, bijk, bxbs
 
+def split_meshes_by_axis(axis,split,meshes):
+    """!
+    Function to recursively split a list of mesh.
+    @param axis: an integer between 0, 1 and 2 to represent the axis on which to perform the split..
+    @param split: a power of 2 to represent by how many times to split
+    @param meshes: a list of meshes in the format [ijk,xbs]
+    @return return a list with the splitted meshes in the format [ijk,xbs].
+    """
+    if split<=1:
+        return meshes
+    elif split<=2:
+        splitted=[]
+        for mesh in meshes:
+            aijk,axbs,bijk,bxbs = split_mesh(axis,[10,10,10],mesh)
+            splitted.extend([axbs,bxbs])
+        return splitted
+    else:
+        return split_meshes_by_axis(axis,split/2,split_meshes_by_axis(axis,split/2,meshes))
+
+def split_mesh_by_all_axis(splits,mesh):
+    """!
+    Function to split a list of mesh.
+    @param splits: a list of number (power of 2) of splits to execute for each of the 3 axis
+    @param mesh: a mesh in the format of xbs ( ex: [-1,1,-1,1,-1,1] )
+    @return return a list with the splitted meshes in the format [[-1,0,-1,1,-1,1],[0,1,-1,1,-1,1],...]
+
+    examples: split_mesh_by_all_axis([2,1,1], [-1,1,-1,1,-1,1])
+              fds.mesh_tools.split_mesh_by_all_axis(ob.bf_mesh_split, xbs[0])
+    """
+    splitted=split_meshes_by_axis(0,splits[0],[mesh])
+    splitted=split_meshes_by_axis(1,splits[1],splitted)
+    splitted=split_meshes_by_axis(2,splits[2],splitted)
+    return splitted
+
+def split_mesh_array_modifier(self, context, ob):
+    """!
+    Function to split a mesh and generate cubes in collection.
+    """
+    (
+        split_x,
+        split_y,
+        split_z
+    ) = ob.bf_mesh_split
+
+    bpy.ops.object.select_all(action='DESELECT') # Deselect all objects
+    bpy.context.view_layer.objects.active = ob    # Make the cube the active object 
+    ob.select_set(True) 
+
+    if split_x > 0:
+        bpy.ops.object.modifier_add(type="ARRAY")
+        bpy.context.object.modifiers["Array"].count = split_x
+        ob.modifiers["Array"].relative_offset_displace[0] = 1
+        ob.modifiers["Array"].relative_offset_displace[1] = 0
+        ob.modifiers["Array"].relative_offset_displace[2] = 0
+
+    if split_y > 0:
+        bpy.ops.object.modifier_add(type="ARRAY")
+        ob.modifiers["Array.001"].count = split_y
+        ob.modifiers["Array.001"].relative_offset_displace[0] = 0
+        ob.modifiers["Array.001"].relative_offset_displace[1] = 1
+        ob.modifiers["Array.001"].relative_offset_displace[2] = 0
+
+    if split_z > 0:
+        bpy.ops.object.modifier_add(type="ARRAY")
+        ob.modifiers["Array.002"].count = split_z
+        ob.modifiers["Array.002"].relative_offset_displace[0] = 0
+        ob.modifiers["Array.002"].relative_offset_displace[1] = 0
+        ob.modifiers["Array.002"].relative_offset_displace[2] = 1
+
+
+    if split_x > 0:
+        bpy.ops.object.modifier_apply(apply_as='DATA', modifier="Array")
+    if split_y > 0:
+        bpy.ops.object.modifier_apply   (apply_as='DATA', modifier="Array.001")
+    if split_z > 0:
+        bpy.ops.object.modifier_apply(apply_as='DATA', modifier="Array.002")
+
+    if split_x > 0:
+        scale_x = ob.scale[0] / split_x
+        bpy.context.object.scale[0] = scale_x
+    if split_y > 0:
+        scale_y = ob.scale[1] / split_y
+        bpy.context.object.scale[1] = scale_y
+    if split_z > 0:
+        scale_z = ob.scale[2] / split_z
+        bpy.context.object.scale[2] = scale_z
+
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+
+    bpy.ops.object.origin_set(type='GEOMETRY_ORIGIN', center='MEDIAN')
+
+    bpy.ops.object.editmode_toggle()
+    bpy.ops.mesh.separate(type='LOOSE')
+    bpy.ops.object.editmode_toggle()
+    bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
+
+    #disable split for splitted cubes
+    selected_objects = context.selected_objects
+    for ob in selected_objects:
+        ob.bf_mesh_split_export = False
+
+
+def split_mesh_visual(self, context, ob):
+    bm = bmesh.new()
+    mesh = ob.data
+    S = Matrix.Scale(1, 4)
+    
+    (
+        split_x,
+        split_y,
+        split_z
+    ) = ob.bf_mesh_split
+
+    scale_x = ob.scale[0] / split_x 
+    scale_y = ob.scale[1] / split_y
+    scale_z = ob.scale[2] / split_z
+    bpy_dimensions = (split_x, split_y, split_z)
+    bpy_scale = (scale_x, scale_y, scale_z)
+
+    for i in range(3):
+        S[i][i] = bpy_scale[i] * bpy_dimensions[i]
+    bmesh.ops.create_cube(bm, size=1, matrix=S)
+
+    #bm.edges.ensure_lookup_table()
+    axes = [axis for axis in Matrix().to_3x3()]
+
+    for cuts, axis in zip(bpy_dimensions, axes):
+        def aligned(e):
+            dir = (e.verts[1].co - e.verts[0].co).normalized()
+            return abs(dir.dot(axis)) > 0.5
+        if cuts == 1:
+            continue
+        bmesh.ops.subdivide_edges(bm,
+            edges=[e for e in bm.edges if aligned(e)],
+            use_grid_fill=True,
+            cuts=cuts - 1)    
+    for v in bm.verts:
+        v.select = True
+    bm.select_flush(True)
+    bm.to_mesh(mesh)
+    #mesh.update()
+   # object_data_add(context, mesh, operator=self)
+    bm.free()
+    if context.edit_object:
+        mesh = context.edit_object.data
+        bmesh.from_edit_mesh(mesh)
+        bmesh.update_edit_mesh(mesh)
 
 def test():
     print("Test")

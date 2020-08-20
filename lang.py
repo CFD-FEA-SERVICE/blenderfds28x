@@ -17,7 +17,9 @@
 import re, os.path, time, sys, logging
 from collections import OrderedDict
 
-import bpy
+import bpy, bmesh
+from mathutils import Matrix
+from bpy_extras.object_utils import AddObjectHelper, object_data_add
 from bpy.types import (
     bpy_struct,
     PropertyGroup,
@@ -37,6 +39,7 @@ from bpy.props import (
     PointerProperty,
     EnumProperty,
     CollectionProperty,
+    FloatVectorProperty
 )
 from . import geometry
 from .types import (
@@ -1733,6 +1736,7 @@ class OP_XB(BFParamXB):
         # Compute
         scale_length = context.scene.unit_settings.scale_length
         xbs, msg = geometry.to_fds.ob_to_xbs(context, ob, scale_length)
+
         # Single param
         if len(xbs) == 1:
             return FDSParam(fds_label="XB", values=xbs[0], precision=6)
@@ -1759,7 +1763,7 @@ class OP_XB(BFParamXB):
             raise Exception("Unknown suffix <{suffix}>")
         result = tuple(
             (
-                FDSParam(fds_label="ID", values=(hid,)),
+                FDSParam(fds_label="ID1", values=(hid,)),
                 FDSParam(fds_label="XB", values=xb, precision=6),
             )
             for hid, xb in zip(ids, xbs)
@@ -1801,6 +1805,28 @@ class OP_XB_BBOX(OP_XB):
         # Compute
         scale_length = context.scene.unit_settings.scale_length
         xbs, _ = geometry.to_fds.ob_to_xbs(context, ob, scale_length)
+
+        #selected_objects = context.selected_objects
+        #if len(selected_objects) > 1 and False:
+        #    scale_length=context.scene.unit_settings.scale_length
+        #    xbs_list = []
+        #    ijk_list = []
+        #    obj_name_list = []
+        #    for obj in selected_objects:
+        #        xb, _ = geometry.to_fds.ob_to_xbs(context, obj, scale_length)
+        #        xbs_list.extend(xb)
+        #        ijk_list.append(obj.bf_mesh_ijk)
+        #        obj_name_list.append(obj.name)
+        #    result = tuple(
+        #        (
+        #            FDSParam(fds_label="ID", values=(hid,)),
+        #            FDSParam(fds_label="IJK", values=ijk),
+        #            FDSParam(fds_label="XB", values=xb, precision=6)
+        #        )
+        #        for hid, ijk, xb in zip(obj_name_list, ijk_list, xbs_list)
+        #    )
+        #    return result
+
         return FDSParam(fds_label="XB", values=xbs[0], precision=6)
 
     def draw(self, context, layout):
@@ -2800,6 +2826,74 @@ class OP_MESH_IJK(BFParam):
 
 
 @subscribe
+class OP_MESH_SPLIT(BFParam):
+    """!
+    Blender representation of the IJK parameter, the cell number in x, y, and z direction.
+    """
+
+    label = "SPLIT"
+    description = "Cell number in x, y, and z direction"
+    fds_label = "SPLIT"
+    bpy_type = Object
+    bpy_idname = "bf_mesh_split"
+    bpy_prop = IntVectorProperty
+    bpy_default = (1, 1, 1)
+    bpy_other = {"size": 3, "min": 1}
+    bpy_export = "bf_mesh_split_export"
+    bpy_export_default = True
+
+
+    def draw(self, context, layout):
+        super().draw(context, layout)
+
+
+    def to_fds_param(self, context):
+        ob = self.element
+        if not ob.bf_mesh_split_export:
+            return
+
+        (
+            split_x,
+            split_y,
+            split_z
+        ) = ob.bf_mesh_split
+
+        if not ob.bf_mesh_split_export:
+            return
+
+        i = ob.bf_mesh_ijk[0] 
+        j = ob.bf_mesh_ijk[1] 
+        k = ob.bf_mesh_ijk[2] 
+        
+        if i % split_x != 0:
+            raise BFException(
+                self,
+                "The split of I value must be a multiple of X"
+            )
+        if j % split_y != 0:
+            raise BFException(
+                self,
+                "The split of J value must be a multiple of Y"
+            )
+
+        if k % split_z != 0:
+            raise BFException(
+                self,
+                "The split of K value must be a multiple of Z"
+            )
+
+        #set split ijk values
+        if split_x > 0:
+            ob.bf_mesh_ijk[0] = i / split_x
+        if split_y > 0:
+            ob.bf_mesh_ijk[1] = j / split_y
+        if split_z > 0:
+            ob.bf_mesh_ijk[2] = k / split_z
+
+        fds.mesh_tools.split_mesh_array_modifier(self, context, ob)
+
+
+@subscribe
 class OP_MESH_MPI_PROCESS(BFParam):
     """!
     Blender representation of the MPI_PROCESS parameter, the assigned to given MPI process (Starting from 0.).
@@ -2827,7 +2921,7 @@ class ON_MESH(BFNamelistOb):
     description = "Domain of simulation"
     enum_id = 1014
     fds_label = "MESH"
-    bf_params = OP_ID, OP_FYI, OP_MESH_IJK, OP_MESH_MPI_PROCESS, OP_XB_BBOX, OP_other
+    bf_params = OP_ID, OP_FYI, OP_MESH_IJK, OP_MESH_SPLIT, OP_MESH_MPI_PROCESS, OP_XB_BBOX, OP_other
     bf_other = {"appearance": "WIRE"}
 
     def draw_operators(self, context, layout):
