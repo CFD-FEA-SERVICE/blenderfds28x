@@ -270,6 +270,9 @@ class ExportFDSCloudHPC(Operator):
         col.prop(self, "cloudHPC_key")
 
         col = self.layout.column(align = True)
+        col.operator("object.simple_operator")
+
+        col = self.layout.column(align = True)
         col.prop(self, "cloudHPC_dirname")
 
         col = self.layout.column(align = True)
@@ -345,6 +348,21 @@ def ShowMessageBox(message="", title="Message Box", icon='INFO'):
 
     bpy.context.window_manager.popup_menu(draw, title=title, icon=icon)
 
+
+@subscribe
+class SimpleOperator(Operator):
+    """Tooltip"""
+    
+    bl_idname = "object.simple_operator" # <- put this string in layout.operator()
+    bl_label = "If you don't have one, register here" # <- button name
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):
+        webbrowser.open('https://cloudhpc.cloud/form-request/', new=2)
+        return {'FINISHED'}
 
 # Register
 
