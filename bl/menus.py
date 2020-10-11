@@ -7,6 +7,7 @@ import tempfile
 import json
 import bpy, logging
 import webbrowser
+import urllib3
 from bpy.types import Operator
 from bpy.props import StringProperty, BoolProperty, FloatProperty
 from bpy_extras.io_utils import ImportHelper, ExportHelper
@@ -14,11 +15,6 @@ from bpy_extras.io_utils import ImportHelper, ExportHelper
 from .. import utils
 from ..types import BFException, FDSCase
 
-try:
-    import requests
-except ImportError:
-    os.system("pip install requests")
-    import requests
 
 log = logging.getLogger(__name__)
 
@@ -297,41 +293,53 @@ class ExportFDSCloudHPC(Operator):
 
     def _upload_fds(self, api_key, dirname, filename, fdsFile):
 
-        url = 'https://cloud.cfdfeaservice.it/api/v1/storage/upload/url'
-
         headers = {
             'api-key': f'{api_key}',
             'Content-Type': 'application/json',
             'Accept': 'application/json',
         }
 
-        payload = json.dumps({
+        body = json.dumps({
             'data': {
                 'dirname': f'{dirname}',
                 'basename': f'{filename}',
                 'contentType': 'application/octet-stream'
             }
         })
+        
+        http = urllib3.PoolManager()
+        response = http.request(
+            'POST', 
+            'https://cloud.cfdfeaservice.it/api/v1/storage/upload/url',
+            headers=headers,
+            body=body
+        )
 
-        response = requests.post(url, headers=headers, data=payload)
-        print(response.status_code)
-        if(response.status_code != 200):
-            raise ConnectionError(response.status_code)
+        print(response.status)
+        if(response.status != 200):
+            raise ConnectionError(response.status)
 
         #---------------
 
-        url = json.loads(response.text)['url']
-
-        data = fdsFile.read()
+        url = json.loads(response.data.decode('utf-8'))["url"]
 
         headers = {
             'Content-Type': 'application/octet-stream',
         }
 
-        response = requests.put(url, headers=headers, data=data)
-        print(response.status_code)
-        if(response.status_code != 200):
-            raise ConnectionError(response.status_code)
+        body = fdsFile.read()
+
+        http = urllib3.PoolManager()
+        response = http.request(
+            'PUT',
+            url,
+            headers=headers,
+            body=body
+        )
+
+        print(response.status)
+        if(response.status != 200):
+            raise ConnectionError(response.status)
 
 
 def menu_func_export_to_cloudHPC(self, context):
